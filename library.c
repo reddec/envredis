@@ -104,6 +104,16 @@ void set_redis_val(const char *name, redisReply *reply) {
     }
 }
 
+/**
+ * Internal function for update env from redis. Expects redis connection is initialized
+ */
+void update_env_from_redis(const char *name) {
+    redisReply *reply;
+    reply = redisCommand(__redis, "GET %s%s", prefix(), name);
+    set_redis_val(name, reply);
+    final_check_reply(reply);
+}
+
 // wrappers - see man
 
 /**
@@ -140,10 +150,7 @@ int clearenv() {
  */
 char *getenv(const char *name) {
     if (__redis != NULL) {
-        redisReply *reply;
-        reply = redisCommand(__redis, "GET %s%s", prefix(), name);
-        set_redis_val(name, reply);
-        final_check_reply(reply);
+        update_env_from_redis(name);
     }
     return real(getenv)(name);
 }
@@ -196,7 +203,7 @@ void fill_env() {
         size_t offset = strlen(prefix());
         for (size_t i = 0; i < reply->elements; ++i) {
             redisReply *item = reply->element[i];
-            getenv((item->str) + offset); // call wrap
+            update_env_from_redis((item->str) + offset);
         }
     }
     final_check_reply(reply);
